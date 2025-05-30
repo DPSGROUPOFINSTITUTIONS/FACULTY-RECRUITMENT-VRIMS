@@ -1,0 +1,1226 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Faculty Recruitment Dashboard - Viraat Ramayan Institute of Medical Sciences</title>
+  <!-- Google Fonts: Inter -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    if (typeof Chart === 'undefined') {
+      console.error('Chart.js failed to load from CDN. Attempting to load local fallback...');
+      const script = document.createElement('script');
+      script.src = 'lib/chart.min.js';
+      script.onerror = () => console.error('Failed to load Chart.js local fallback.');
+      script.onload = () => console.log('Chart.js local fallback loaded successfully.');
+      document.head.appendChild(script);
+    }
+  </script>
+  <!-- Tailwind CSS -->
+  <link href="dist/styles.css" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #111827;
+      color: #FFFFFF;
+      margin: 0;
+    }
+    .header {
+      background-color: #1F2A44;
+      padding: 1.5rem 0;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      text-align: center;
+      position: relative;
+    }
+    .header img {
+      max-width: 150px;
+      margin-bottom: 0.5rem;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 2rem;
+      font-weight: 700;
+      color: #2DD4BF;
+    }
+    .header .date-time {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      display: flex;
+      align-items: center;
+      color: #D1D5DB;
+      font-size: 0.875rem;
+    }
+    .header .date-time svg {
+      width: 24px;
+      height: 24px;
+      margin-right: 0.5rem;
+    }
+    .footer {
+      background-color: #1F2A44;
+      padding: 1rem 0;
+      text-align: center;
+      box-shadow: 0 -4px 6px rgba(0, 0, 0, 0.3);
+      margin-top: 2rem;
+    }
+    .footer p {
+      margin: 0;
+      font-size: 0.875rem;
+      color: #D1D5DB;
+    }
+    .sidebar {
+      background-color: #1F2A44;
+      transition: transform 0.3s ease-in-out;
+    }
+    .sidebar-hidden {
+      transform: translateX(-100%);
+    }
+    .card {
+      background-color: #1F2A44;
+      border-radius: 0.75rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+    }
+    .btn-primary {
+      background-color: #1E3A8A;
+      color: #FFFFFF;
+      transition: background-color 0.3s ease;
+    }
+    .btn-primary:hover {
+      background-color: #1E40AF;
+    }
+    .btn-secondary {
+      background-color: #2DD4BF;
+      color: #111827;
+      transition: background-color 0.3s ease;
+    }
+    .btn-secondary:hover {
+      background-color: #26C6DA;
+    }
+    .btn-danger {
+      background-color: #EF4444;
+      color: #FFFFFF;
+      transition: background-color 0.3s ease;
+    }
+    .btn-danger:hover {
+      background-color: #DC2626;
+    }
+    .btn-warning {
+      background-color: #F59E0B;
+      color: #111827;
+      transition: background-color 0.3s ease;
+    }
+    .btn-warning:hover {
+      background-color: #D97706;
+    }
+    input, select, textarea {
+      background-color: #374151;
+      color: #FFFFFF;
+      border: 1px solid #4B5563;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: #1E3A8A;
+      box-shadow: 0 0 0 3px rgba(30, 58, 138, 0.2);
+      outline: none;
+    }
+    table tbody tr:hover {
+      background-color: #2D3748;
+      transition: background-color 0.2s ease;
+    }
+    .modal-overlay {
+      background-color: rgba(0, 0, 0, 0.7);
+      display: flex;
+    }
+    .hidden {
+      display: none;
+    }
+    #vacancy-chart {
+      height: 400px;
+      width: 100%;
+    }
+    .content-wrapper {
+      min-height: calc(100vh - 160px); /* Adjust based on header and footer height */
+      display: flex;
+    }
+    .vacancy-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .vacancy-item {
+      background-color: #2D3748;
+      padding: 1rem;
+      border-radius: 0.5rem;
+      flex: 1 1 200px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <img src="logo.png" alt="Viraat Ramayan Institute of Medical Sciences Logo">
+    <h1>Viraat Ramayan Institute of Medical Sciences</h1>
+    <div class="date-time">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+        <line x1="16" y1="2" x2="16" y2="6"></line>
+        <line x1="8" y1="2" x2="8" y2="6"></line>
+        <line x1="3" y1="10" x2="21" y2="10"></line>
+        <circle cx="12" cy="16" r="4" stroke="#D1D5DB"></circle>
+        <line x1="12" y1="16" x2="12" y2="14" stroke="#D1D5DB"></line>
+        <line x1="12" y1="16" x2="14" y2="16" stroke="#D1D5DB"></line>
+      </svg>
+      <span>05:28 PM IST, Wed, May 28, 2025</span>
+    </div>
+  </header>
+
+  <!-- Content Wrapper -->
+  <div class="content-wrapper">
+    <!-- Sidebar -->
+    <aside id="sidebar" class="sidebar fixed top-0 left-0 h-full w-64 p-6 flex flex-col space-y-4 z-50 md:static md:translate-x-0 sidebar-hidden">
+      <h2 class="text-2xl font-bold mb-6 text-white">Dashboard</h2>
+      <nav class="space-y-2">
+        <a href="#faculty-positions" class="block px-4 py-2 rounded-lg text-gray-300 hover:bg-[#2DD4BF] hover:text-[#111827] transition-colors">Faculty Positions</a>
+        <a href="#recruited-faculty" class="block px-4 py-2 rounded-lg text-gray-300 hover:bg-[#2DD4BF] hover:text-[#111827] transition-colors">Recruited Faculty</a>
+        <a href="#add-faculty" class="block px-4 py-2 rounded-lg text-gray-300 hover:bg-[#2DD4BF] hover:text-[#111827] transition-colors">Add Faculty</a>
+        <a href="#edit-faculty" class="block px-4 py-2 rounded-lg text-gray-300 hover:bg-[#2DD4BF] hover:text-[#111827] transition-colors">Edit Faculty</a>
+        <a href="#audit-log" class="block px-4 py-2 rounded-lg text-gray-300 hover:bg-[#2DD4BF] hover:text-[#111827] transition-colors">Audit Log</a>
+        <a id="user-management-link" href="#user-management" class="hidden block px-4 py-2 rounded-lg text-gray-300 hover:bg-[#2DD4BF] hover:text-[#111827] transition-colors">User Management</a>
+      </nav>
+      <button id="logout-button" class="hidden mt-auto btn-danger px-4 py-2 rounded-lg">Logout</button>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 p-6 overflow-y-auto">
+      <!-- Sidebar Toggle Button (Mobile) -->
+      <button id="sidebar-toggle" class="md:hidden fixed top-4 left-4 z-50 p-2 bg-[#1E3A8A] rounded-lg text-white">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+        </svg>
+      </button>
+
+      <!-- User Info -->
+      <div class="flex justify-end mb-8 mt-12 md:mt-0">
+        <span id="user-info" class="text-gray-300">Please log in</span>
+      </div>
+
+      <!-- Login Modal -->
+      <div id="login-modal" class="modal-overlay fixed inset-0 flex items-center justify-center z-50">
+        <div class="card p-6 w-full max-w-md">
+          <h2 class="text-2xl font-semibold mb-4">Login</h2>
+          <form id="login-form" class="space-y-4">
+            <div>
+              <label for="username" class="block mb-1 text-gray-300">Username</label>
+              <input id="username" type="text" class="w-full p-2 rounded" required>
+            </div>
+            <div>
+              <label for="password" class="block mb-1 text-gray-300">Password</label>
+              <input id="password" type="password" class="w-full p-2 rounded" required>
+            </div>
+            <button type="submit" class="btn-primary px-4 py-2 rounded w-full">Login</button>
+            <p id="login-error" class="text-[#EF4444] hidden"></p>
+          </form>
+        </div>
+      </div>
+
+      <!-- Prompt Modal -->
+      <div id="prompt-modal" class="modal-overlay fixed inset-0 flex items-center justify-center z-50 hidden">
+        <div class="card p-6 w-full max-w-md">
+          <h2 class="text-2xl font-semibold mb-4">AI Prompt</h2>
+          <p id="prompt-text" class="mb-4 text-gray-300"></p>
+          <button id="close-modal" class="btn-primary px-4 py-2 rounded">Close</button>
+        </div>
+      </div>
+
+      <!-- Status Message -->
+      <div id="status-message" class="mb-6 text-[#2DD4BF] hidden text-center font-medium"></div>
+
+      <!-- Main Grid -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Left Column: Faculty Positions & Related -->
+        <div class="lg:col-span-2 space-y-6">
+          <!-- Real-Time Vacancy Dashboard -->
+          <section id="vacancy-dashboard" class="card p-6">
+            <h2 class="text-2xl font-semibold mb-4">Real-Time Vacancy Dashboard</h2>
+            <div id="vacancy-summary" class="vacancy-summary"></div>
+          </section>
+
+          <!-- Faculty Positions -->
+          <section id="faculty-positions" class="card p-6">
+            <h4 class="text-2xl font-semibold mb-4">Faculty Positions</h4>
+            <div class="overflow-x-auto">
+              <table class="w-full border-collapse">
+                <thead>
+                  <tr class="bg-[#2D3748]">
+                    <th class="p-4 border border-[#4B5563] text-left">Department</th>
+                    <th class="p-4 border border border-[#4B5563] text-left">Professor</th>
+                    <th class="p-4 border border-[#4B5563] text-left">Associate Professor</th>
+                    <th class="p-4 border border-[#4B5563] text-left">Assistant Professor</th>
+                    <th class="p-4 border border-[#4B5563] text-left">Tutor/Demonstrator</th>
+                    <th class="p-4 border border-[#4B5563] text-left">Senior Resident</th>
+                    <th class="p-4 border border-[#4B5563] text-left">Child Psychologist</th>
+                    <th class="p-4 border border-[#4B5563] text-left">Vacant Positions</th>
+                  </tr>
+                </thead>
+                <tbody id="vacancy-table"></tbody>
+              </table>
+            </div>
+          </section>
+
+          <!-- Update Faculty Position -->
+          <section class="card p-6">
+            <h2 class="text-2xl font-semibold mb-4">Update Faculty Position</h2>
+            <form id="update-form" class="space-y-4">
+              <div>
+                <label for="department" class="block mb-1 text-gray-300">Department</label>
+                <select id="department" class="w-full p-2 rounded"></select>
+              </div>
+              <div>
+                <label for="designation" class="block mb-1 text-gray-300">Designation</label>
+                <select id="designation" class="w-full p-2 rounded">
+                  <option value="professor">Professor</option>
+                  <option value="associate_professor">Associate Professor</option>
+                  <option value="assistant_professor">Assistant Professor</option>
+                  <option value="tutor_demonstrator">Tutor/Demonstrator</option>
+                  <option value="senior_resident">Senior Resident</option>
+                  <option value="child_psychologist">Child Psychologist</option>
+                </select>
+              </div>
+              <div>
+                <label for="total-positions" class="block mb-1 text-gray-300">Total Positions</label>
+                <input id="total-positions" type="number" min="0" class="w-full p-2 rounded" required>
+              </div>
+              <div>
+                <label for="filled-positions" class="block mb-1 text-gray-300">Filled Positions</label>
+                <input id="filled-positions" type="number" min="0" class="w-full p-2 rounded" required>
+              </div>
+              <button type="submit" class="btn-primary px-4 py-2 rounded w-full">Update</button>
+              <p id="update-error" class="text-[#EF4444] hidden"></p>
+            </form>
+          </section>
+
+          <!-- Vacancy Chart -->
+          <section class="card p-6">
+            <h2 class="text-2xl font-semibold mb-4">Vacancy Chart</h2>
+            <canvas id="vacancy-chart"></canvas>
+          </section>
+        </div>
+
+        <!-- Right Column: Summary & Quick Actions -->
+        <div class="space-y-6">
+          <!-- Summary -->
+          <section class="card p-6">
+            <h2 class="text-2xl font-semibold mb-4">Summary</h2>
+            <p id="summary-text" class="text-gray-300">Loading...</p>
+          </section>
+
+          <!-- Quick Actions -->
+          <section class="card p-6">
+            <h2 class="text-2xl font-semibold mb-4">Quick Actions</h2>
+            <div class="space-y-3">
+              <a href="#add-faculty" class="block btn-secondary px-4 py-2 rounded text-center">Add New Faculty</a>
+              <a href="#recruited-faculty" class="block btn-secondary px-4 py-2 rounded text-center">View Recruited Faculty</a>
+              <a href="#audit-log" class="block btn-secondary px-4 py-2 rounded text-center">View Audit Log</a>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <!-- Recruited Faculty -->
+      <section id="recruited-faculty" class="card p-6 mt-6">
+        <h2 class="text-2xl font-semibold mb-4">Recruited Faculty</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse">
+            <thead>
+              <tr class="bg-[#2D3748]">
+                <th class="p-4 border border-[#4B5563] text-left">S.No</th>
+                <th class="p-4 border border-[#4B5563] text-left">Name</th>
+                <th class="p-4 border border-[#4B5563] text-left">Department</th>
+                <th class="p-4 border border-[#4B5563] text-left">Designation</th>
+                <th class="p-4 border border-[#4B5563] text-left">Mobile</th>
+                <th class="p-4 border border-[#4B5563] text-left">Salary</th>
+                <th class="p-4 border border-[#4B5563] text-left">DOB</th>
+                <th class="p-4 border border-[#4B5563] text-left">DOJ</th>
+                <th class="p-4 border border-[#4B5563] text-left">Address</th>
+                <th class="p-4 border border-[#4B5563] text-left">Experience as Senior Resident (Years)</th>
+                <th class="p-4 border border-[#4B5563] text-left">Experience as Assistant Professor (Years)</th>
+                <th class="p-4 border border-[#4B5563] text-left">Experience as Associate Professor (Years)</th>
+                <th class="p-4 border border-[#4B5563] text-left">Journals Published</th>
+                <th class="p-4 border border-[#4B5563] text-left">Bank Details</th>
+                <th class="p-4 border border-[#4B5563] text-left">Recruited By</th>
+                <th class="p-4 border border-[#4B5563] text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="recruited-table"></tbody>
+          </table>
+        </div>
+        <div class="flex justify-between mt-4">
+          <button id="prev-page" class="btn-primary px-4 py-2 rounded">Previous</button>
+          <span id="page-info" class="text-gray-300">Page 1 of 1</span>
+          <button id="next-page" class="btn-primary px-4 py-2 rounded">Next</button>
+        </div>
+      </section>
+
+      <!-- Add Faculty -->
+      <section id="add-faculty" class="card p-6 mt-6">
+        <h2 class="text-2xl font-semibold mb-4">Add Faculty</h2>
+        <form id="add-faculty-form" class="space-y-4">
+          <div>
+            <label for="new-name" class="block mb-1 text-gray-300">Name</label>
+            <input id="new-name" type="text" class="w-full p-2 rounded" required>
+          </div>
+          <div>
+            <label for="new-department" class="block mb-1 text-gray-300">Department</label>
+            <select id="new-department" class="w-full p-2 rounded"></select>
+          </div>
+          <div>
+            <label for="new-designation" class="block mb-1 text-gray-300">Designation</label>
+            <select id="new-designation" class="w-full p-2 rounded">
+              <option value="professor">Professor</option>
+              <option value="associate_professor">Associate Professor</option>
+              <option value="assistant_professor">Assistant Professor</option>
+              <option value="tutor_demonstrator">Tutor/Demonstrator</option>
+              <option value="senior_resident">Senior Resident</option>
+              <option value="child_psychologist">Child Psychologist</option>
+            </select>
+          </div>
+          <div>
+            <label for="new-mobile" class="block mb-1 text-gray-300">Mobile</label>
+            <input id="new-mobile" type="text" class="w-full p-2 rounded" required>
+          </div>
+          <div>
+            <label for="new-salary" class="block mb-1 text-gray-300">Salary</label>
+            <input id="new-salary" type="number" min="0" class="w-full p-2 rounded" required>
+          </div>
+          <div>
+            <label for="new-dob" class="block mb-1 text-gray-300">DOB</label>
+            <input id="new-dob" type="date" class="w-full p-2 rounded" required>
+          </div>
+          <div>
+            <label for="new-doj" class="block mb-1 text-gray-300">DOJ</label>
+            <input id="new-doj" type="date" class="w-full p-2 rounded" required>
+          </div>
+          <div>
+            <label for="new-address" class="block mb-1 text-gray-300">Address</label>
+            <textarea id="new-address" class="w-full p-2 rounded" required></textarea>
+          </div>
+          <div>
+            <label for="new-exp-senior-resident" class="block mb-1 text-gray-300">Experience as Senior Resident (Years)</label>
+            <select id="new-exp-senior-resident" class="w-full p-2 rounded">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6+">6+</option>
+            </select>
+          </div>
+          <div>
+            <label for="new-exp-assistant-professor" class="block mb-1 text-gray-300">Experience as Assistant Professor (Years)</label>
+            <select id="new-exp-assistant-professor" class="w-full p-2 rounded">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6+">6+</option>
+            </select>
+          </div>
+          <div>
+            <label for="new-exp-associate-professor" class="block mb-1 text-gray-300">Experience as Associate Professor (Years)</label>
+            <select id="new-exp-associate-professor" class="w-full p-2 rounded">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6+">6+</option>
+            </select>
+          </div>
+          <div>
+            <label for="new-journals-published" class="block mb-1 text-gray-300">Number of Journals Published</label>
+            <input id="new-journals-published" type="number" min="0" class="w-full p-2 rounded" required>
+          </div>
+          <div>
+            <label class="block mb-1 text-gray-300">Bank Details</label>
+            <div class="space-y-2">
+              <div>
+                <label for="new-bank-account-holder" class="block mb-1 text-gray-300 text-sm">Name of Account Holder</label>
+                <input id="new-bank-account-holder" type="text" class="w-full p-2 rounded" required>
+              </div>
+              <div>
+                <label for="new-bank-account-number" class="block mb-1 text-gray-300 text-sm">Account Number</label>
+                <input id="new-bank-account-number" type="text" class="w-full p-2 rounded" required>
+              </div>
+              <div>
+                <label for="new-bank-ifsc" class="block mb-1 text-gray-300 text-sm">IFSC Code</label>
+                <input id="new-bank-ifsc" type="text" class="w-full p-2 rounded" required>
+              </div>
+              <div>
+                <label for="new-bank-name-address" class="block mb-1 text-gray-300 text-sm">Name and Address of Bank</label>
+                <textarea id="new-bank-name-address" class="w-full p-2 rounded" required></textarea>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label for="new-recruited-by" class="block mb-1 text-gray-300">Recruited By</label>
+            <select id="new-recruited-by" class="w-full p-2 rounded">
+              <option value="Vikash Bhatt">Vikash Bhatt</option>
+              <option value="Dr. Rupesh">Dr. Rupesh</option>
+              <option value="Self">Self</option>
+              <option value="By Others">By Others</option>
+            </select>
+          </div>
+          <button type="submit" class="btn-primary px-4 py-2 rounded w-full">Add Faculty</button>
+          <p id="add-faculty-error" class="text-[#EF4444] hidden"></p>
+        </form>
+      </section>
+
+      <!-- Edit Faculty -->
+      <section id="edit-faculty" class="card p-6 mt-6">
+        <h2 class="text-2xl font-semibold mb-4">Edit Faculty</h2>
+        <form id="edit-faculty-form" class="space-y-4">
+          <input id="edit-id" type="hidden">
+          <div>
+            <label for="edit-name" class="block mb-1 text-gray-300">Name</label>
+            <input id="edit-name" type="text" class="w-full p-2 rounded" required>
+          </div>
+          <div>
+            <label for="edit-department" class="block mb-1 text-gray-300">Department</label>
+            <select id="edit-department" class="w-full p-2 rounded"></select>
+          </div>
+          <div>
+            <label for="edit-designation" class="block mb-1 text-gray-300">Designation</label>
+            <select id="edit-designation" class="w-full p-2 rounded">
+              <option value="professor">Professor</option>
+              <option value="associate_professor">Associate Professor</option>
+              <option value="assistant_professor">Assistant Professor</option>
+              <option value="tutor_demonstrator">Tutor/Demonstrator</option>
+              <option value="senior_resident">Senior Resident</option>
+              <option value="child_psychologist">Child Psychologist</option>
+            </select>
+          </div>
+          <div>
+            <label for="edit-mobile" class="block mb-1 text-gray-300">Mobile</label>
+            <input id="edit-mobile" type="text" class="w-full p-2 rounded" required>
+          </div>
+          <div>
+            <label for="edit-salary" class="block mb-1 text-gray-300">Salary</label>
+            <input id="edit-salary" type="number" min="0" class="w-full p-2 rounded" required>
+          </div>
+          <div>
+            <label for="edit-dob" class="block mb-1 text-gray-300">DOB</label>
+            <input id="edit-dob" type="date" class="w-full p-2 rounded" required>
+          </div>
+          <div>
+            <label for="edit-doj" class="block mb-1 text-gray-300">DOJ</label>
+            <input id="edit-doj" type="date" class="w-full p-2 rounded" required>
+          </div>
+          <div>
+            <label for="edit-address" class="block mb-1 text-gray-300">Address</label>
+            <textarea id="edit-address" class="w-full p-2 rounded" required></textarea>
+          </div>
+          <div>
+            <label for="edit-exp-senior-resident" class="block mb-1 text-gray-300">Experience as Senior Resident (Years)</label>
+            <select id="edit-exp-senior-resident" class="w-full p-2 rounded">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6+">6+</option>
+            </select>
+          </div>
+          <div>
+            <label for="edit-exp-assistant-professor" class="block mb-1 text-gray-300">Experience as Assistant Professor (Years)</label>
+            <select id="edit-exp-assistant-professor" class="w-full p-2 rounded">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6+">6+</option>
+            </select>
+          </div>
+          <div>
+            <label for="edit-exp-associate-professor" class="block mb-1 text-gray-300">Experience as Associate Professor (Years)</label>
+            <select id="edit-exp-associate-professor" class="w-full p-2 rounded">
+              <option value="0">0</option>
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6+">6+</option>
+            </select>
+          </div>
+          <div>
+            <label for="edit-journals-published" class="block mb-1 text-gray-300">Number of Journals Published</label>
+            <input id="edit-journals-published" type="number" min="0" class="w-full p-2 rounded" required>
+          </div>
+          <div>
+            <label class="block mb-1 text-gray-300">Bank Details</label>
+            <div class="space-y-2">
+              <div>
+                <label for="edit-bank-account-holder" class="block mb-1 text-gray-300 text-sm">Name of Account Holder</label>
+                <input id="edit-bank-account-holder" type="text" class="w-full p-2 rounded" required>
+              </div>
+              <div>
+                <label for="edit-bank-account-number" class="block mb-1 text-gray-300 text-sm">Account Number</label>
+                <input id="edit-bank-account-number" type="text" class="w-full p-2 rounded" required>
+              </div>
+              <div>
+                <label for="edit-bank-ifsc" class="block mb-1 text-gray-300 text-sm">IFSC Code</label>
+                <input id="edit-bank-ifsc" type="text" class="w-full p-2 rounded" required>
+              </div>
+              <div>
+                <label for="edit-bank-name-address" class="block mb-1 text-gray-300 text-sm">Name and Address of Bank</label>
+                <textarea id="edit-bank-name-address" class="w-full p-2 rounded" required></textarea>
+              </div>
+            </div>
+          </div>
+          <div>
+            <label for="edit-recruited-by" class="block mb-1 text-gray-300">Recruited By</label>
+            <select id="edit-recruited-by" class="w-full p-2 rounded">
+              <option value="Vikash Bhatt">Vikash Bhatt</option>
+              <option value="Dr. Rupesh">Dr. Rupesh</option>
+              <option value="Self">Self</option>
+              <option value="By Others">By Others</option>
+            </select>
+          </div>
+          <button type="submit" class="btn-primary px-4 py-2 rounded w-full">Update Faculty</button>
+          <p id="edit-faculty-error" class="text-[#EF4444] hidden"></p>
+        </form>
+      </section>
+
+      <!-- User Management (Admin Only) -->
+      <section id="user-management" class="card p-6 mt-6 hidden">
+        <h2 class="text-2xl font-semibold mb-4">User Management</h2>
+        <form id="add-user-form" class="space-y-4">
+          <div>
+            <label for="new-username" class="block mb-1 text-gray-300">Username</label>
+            <input id="new-username" type="text" class="w-full p-2 rounded" required>
+          </div>
+          <div>
+            <label for="new-password" class="block mb-1 text-gray-300">Password</label>
+            <input id="new-password" type="password" class="w-full p-2 rounded" required>
+          </div>
+          <div>
+            <label for="new-role" class="block mb-1 text-gray-300">Role</label>
+            <select id="new-role" class="w-full p-2 rounded">
+              <option value="admin">Admin</option>
+              <option value="user">User</option>
+            </select>
+          </div>
+          <button type="submit" class="btn-primary px-4 py-2 rounded w-full">Create User</button>
+          <p id="add-user-error" class="text-[#EF4444] hidden"></p>
+        </form>
+      </section>
+
+      <!-- Audit Log -->
+      <section id="audit-log" class="card p-6 mt-6">
+        <h2 class="text-2xl font-semibold mb-4">Audit Log</h2>
+        <div class="overflow-x-auto">
+          <table class="w-full border-collapse">
+            <thead>
+              <tr class="bg-[#2D3748]">
+                <th class="p-4 border border-[#4B5563] text-left">Timestamp</th>
+                <th class="p-4 border border-[#4B5563] text-left">User</th>
+                <th class="p-4 border border-[#4B5563] text-left">Action</th>
+                <th class="p-4 border border-[#4B5563] text-left">Details</th>
+              </tr>
+            </thead>
+            <tbody id="audit-table"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <p>VPO Koyla Belwa, PS Chakia, District East Champaran, Bihar, PIN 845412</p>
+  </footer>
+
+  <script>
+    const departments = [
+      'Anatomy', 'Physiology', 'Biochemistry', 'Pharmacology', 'Pathology',
+      'Microbiology', 'Forensic Medicine & Toxicology', 'Community Medicine',
+      'General Medicine', 'Paediatrics', 'Dermatology', 'Psychiatrics',
+      'General Surgery', 'Orthopaedics', 'Otolaryngology (ENT)', 'Ophthalmology (Eye)',
+      'Gynecology', 'Anaesthesia', 'Radiology', 'Dentistry'
+    ];
+
+    // Total Requirements Dataset (Updated from Excel Data)
+    const totalRequirements = [
+      { name: 'Anatomy', total: 15, professor: 1, associate_professor: 2, assistant_professor: 3, tutor_demonstrator: 5, senior_resident: 3, child_psychologist: 0 },
+      { name: 'Physiology', total: 12, professor: 1, associate_professor: 2, assistant_professor: 2, tutor_demonstrator: 4, senior_resident: 3, child_psychologist: 0 },
+      { name: 'Biochemistry', total: 12, professor: 1, associate_professor: 2, assistant_professor: 2, tutor_demonstrator: 4, senior_resident: 3, child_psychologist: 0 },
+      { name: 'Pharmacology', total: 13, professor: 1, associate_professor: 2, assistant_professor: 3, tutor_demonstrator: 4, senior_resident: 3, child_psychologist: 0 },
+      { name: 'Pathology', total: 15, professor: 1, associate_professor: 3, assistant_professor: 3, tutor_demonstrator: 5, senior_resident: 3, child_psychologist: 0 },
+      { name: 'Microbiology', total: 13, professor: 1, associate_professor: 2, assistant_professor: 3, tutor_demonstrator: 4, senior_resident: 3, child_psychologist: 0 },
+      { name: 'Forensic Medicine & Toxicology', total: 9, professor: 1, associate_professor: 1, assistant_professor: 1, tutor_demonstrator: 3, senior_resident: 3, child_psychologist: 0 },
+      { name: 'Community Medicine', total: 14, professor: 1, associate_professor: 2, assistant_professor: 5, tutor_demonstrator: 3, senior_resident: 3, child_psychologist: 0 },
+      { name: 'General Medicine', total: 15, professor: 1, associate_professor: 4, assistant_professor: 5, tutor_demonstrator: 0, senior_resident: 5, child_psychologist: 0 },
+      { name: 'Paediatrics', total: 9, professor: 1, associate_professor: 2, assistant_professor: 3, tutor_demonstrator: 0, senior_resident: 3, child_psychologist: 0 },
+      { name: 'Dermatology', total: 4, professor: 1, associate_professor: 1, assistant_professor: 1, tutor_demonstrator: 0, senior_resident: 1, child_psychologist: 0 },
+      { name: 'Psychiatrics', total: 5, professor: 1, associate_professor: 1, assistant_professor: 1, tutor_demonstrator: 1, senior_resident: 1, child_psychologist: 1 },
+      { name: 'General Surgery', total: 15, professor: 1, associate_professor: 4, assistant_professor: 5, tutor_demonstrator: 0, senior_resident: 5, child_psychologist: 0 },
+      { name: 'Orthopaedics', total: 9, professor: 1, associate_professor: 2, assistant_professor: 3, tutor_demonstrator: 0, senior_resident: 3, child_psychologist: 0 },
+      { name: 'Otolaryngology (ENT)', total: 6, professor: 1, associate_professor: 1, assistant_professor: 2, tutor_demonstrator: 0, senior_resident: 2, child_psychologist: 0 },
+      { name: 'Ophthalmology (Eye)', total: 6, professor: 1, associate_professor: 1, assistant_professor: 2, tutor_demonstrator: 0, senior_resident: 2, child_psychologist: 0 },
+      { name: 'Gynecology', total: 12, professor: 1, associate_professor: 3, assistant_professor: 4, tutor_demonstrator: 4, senior_resident: 0, child_psychologist: 0 },
+      { name: 'Anaesthesia', total: 13, professor: 1, associate_professor: 3, assistant_professor: 5, tutor_demonstrator: 4, senior_resident: 0, child_psychologist: 0 },
+      { name: 'Radiology', total: 7, professor: 1, associate_professor: 1, assistant_professor: 2, tutor_demonstrator: 0, senior_resident: 3, child_psychologist: 0 },
+      { name: 'Dentistry', total: 3, professor: 0, associate_professor: 1, assistant_professor: 1, tutor_demonstrator: 1, senior_resident: 0, child_psychologist: 0 }
+    ];
+
+    let token = null;
+    let currentUserRole = null;
+    let currentPage = 1;
+    const itemsPerPage = 5;
+    let isSidebarOpen = false;
+
+    // Utility function to safely parse fetch responses
+    async function parseResponse(response) {
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Request failed: ${response.status} ${response.statusText} - ${errorBody}`);
+      }
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        throw new Error(`Expected JSON, but received: ${text}`);
+      }
+      return response.json();
+    }
+
+    // Populate department dropdowns with retry mechanism
+    function populateDepartments(attempt = 1, maxAttempts = 3) {
+      const departmentSelects = [
+        document.getElementById('department'),
+        document.getElementById('new-department'),
+        document.getElementById('edit-department')
+      ];
+
+      console.log(`Attempt ${attempt} to populate department dropdowns...`);
+      console.log('Departments array:', departments);
+
+      const allSelectsExist = departmentSelects.every(select => {
+        if (!select) {
+          console.error(`Department dropdown not found: ${select ? select.id : 'null'}`);
+          return false;
+        }
+        return true;
+      });
+
+      if (!allSelectsExist) {
+        if (attempt < maxAttempts) {
+          console.log(`Some dropdowns not found. Retrying in 500ms... (Attempt ${attempt}/${maxAttempts})`);
+          setTimeout(() => populateDepartments(attempt + 1, maxAttempts), 500);
+        } else {
+          console.error('Max attempts reached. Could not populate department dropdowns.');
+          const statusMessage = document.getElementById('status-message');
+          if (statusMessage) {
+            statusMessage.textContent = 'Error: Could not populate department dropdowns. Please refresh the page.';
+            statusMessage.classList.remove('hidden');
+          }
+        }
+        return;
+      }
+
+      departmentSelects.forEach(select => {
+        select.innerHTML = '';
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Select Department';
+        defaultOption.disabled = true;
+        defaultOption.selected = true;
+        select.appendChild(defaultOption);
+
+        departments.forEach(dept => {
+          const option = document.createElement('option');
+          option.value = dept.toLowerCase();
+          option.textContent = dept;
+          select.appendChild(option);
+        });
+        console.log(`Populated ${select.id} with ${select.options.length} options.`);
+      });
+
+      console.log('Department dropdowns populated successfully.');
+    }
+
+    // Simplified server health check
+    async function checkServerHealth() {
+      try {
+        const response = await fetch('http://localhost:4040/health', { method: 'GET', mode: 'cors' });
+        return response.ok;
+      } catch (error) {
+        console.error('Server health check failed:', error.message);
+        return false;
+      }
+    }
+
+    // Update UI after login
+    function updateUIAfterLogin(username, role) {
+      const loginModal = document.getElementById('login-modal');
+      const userInfo = document.getElementById('user-info');
+      const logoutButton = document.getElementById('logout-button');
+      const userManagementLink = document.getElementById('user-management-link');
+      const userManagementSection = document.getElementById('user-management');
+      const sidebar = document.getElementById('sidebar');
+
+      if (!loginModal || !userInfo || !logoutButton || !userManagementLink || !userManagementSection || !sidebar) {
+        console.error('One or more UI elements not found for update.');
+        return;
+      }
+
+      loginModal.classList.add('hidden');
+      userInfo.textContent = `Welcome, ${username} (${role.charAt(0).toUpperCase() + role.slice(1)})`;
+      logoutButton.classList.remove('hidden');
+
+      if (role.toLowerCase() === 'admin') {
+        userManagementLink.classList.remove('hidden');
+        userManagementSection.classList.remove('hidden');
+      } else {
+        userManagementLink.classList.add('hidden');
+        userManagementSection.classList.add('hidden');
+      }
+
+      if (window.innerWidth < 768) {
+        sidebar.classList.remove('sidebar-hidden');
+        isSidebarOpen = true;
+      }
+
+      populateDepartments(); // Ensure dropdowns are populated after login
+    }
+
+    // Generate AI Prompt (stubbed)
+    async function generatePrompt(promptText) {
+      const promptModal = document.getElementById('prompt-modal');
+      const promptTextElement = document.getElementById('prompt-text');
+      if (promptModal && promptTextElement) {
+        promptTextElement.textContent = 'AI works through algorithms, data, and computation to mimic human intelligence.';
+        promptModal.classList.remove('hidden');
+      }
+    }
+
+    // Login
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value.trim();
+      const loginError = document.getElementById('login-error');
+
+      if (!username || !password) {
+        loginError.textContent = 'Please enter both username and password.';
+        loginError.classList.remove('hidden');
+        return;
+      }
+
+      const serverAvailable = await checkServerHealth();
+      if (!serverAvailable) {
+        // Fallback login for testing
+        if (username === 'admin' && password === 'admin123') {
+          token = 'mock-token-admin';
+          currentUserRole = 'admin';
+        } else if (username === 'user' && password === 'user123') {
+          token = 'mock-token-user';
+          currentUserRole = 'user';
+        } else {
+          loginError.textContent = 'Invalid username or password (Fallback Mode)';
+          loginError.classList.remove('hidden');
+          return;
+        }
+
+        localStorage.setItem('token', token);
+        localStorage.setItem('role', currentUserRole);
+        localStorage.setItem('username', username);
+        updateUIAfterLogin(username, currentUserRole);
+        fetchData();
+        loginError.classList.add('hidden');
+        return;
+      }
+
+      try {
+        const response = await fetch('http://localhost:4040/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+
+        const data = await parseResponse(response);
+        if (!data.token || !data.role) {
+          throw new Error('Login successful, but token or role not received.');
+        }
+
+        token = data.token;
+        currentUserRole = data.role.toLowerCase();
+        localStorage.setItem('token', token);
+        localStorage.setItem('role', currentUserRole);
+        localStorage.setItem('username', username);
+        updateUIAfterLogin(username, currentUserRole);
+        fetchData();
+        loginError.classList.add('hidden');
+      } catch (error) {
+        loginError.textContent = 'Error: ' + error.message;
+        loginError.classList.remove('hidden');
+      }
+    });
+
+    // Logout
+    document.getElementById('logout-button').addEventListener('click', () => {
+      token = null;
+      currentUserRole = null;
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('username');
+      document.getElementById('login-modal').classList.remove('hidden');
+      document.getElementById('user-info').textContent = 'Please log in';
+      document.getElementById('logout-button').classList.add('hidden');
+      document.getElementById('sidebar').classList.add('sidebar-hidden');
+      document.getElementById('vacancy-table').innerHTML = '';
+      document.getElementById('recruited-table').innerHTML = '';
+      document.getElementById('summary-text').textContent = 'Loading...';
+      document.getElementById('audit-table').innerHTML = '';
+      document.getElementById('vacancy-summary').innerHTML = '';
+      document.getElementById('user-management-link').classList.add('hidden');
+      document.getElementById('user-management').classList.add('hidden');
+      isSidebarOpen = false;
+    });
+
+    // Fetch all data
+    async function fetchData() {
+      token = localStorage.getItem('token');
+      currentUserRole = localStorage.getItem('role');
+      const username = localStorage.getItem('username');
+
+      if (token && currentUserRole && username) {
+        updateUIAfterLogin(username, currentUserRole);
+        try {
+          await Promise.all([
+            fetchFacultyPositions(),
+            fetchRecruitedFaculty(),
+            fetchAuditLog()
+          ]);
+          populateDepartments(); // Ensure dropdowns are populated after fetching data
+        } catch (error) {
+          const statusMessage = document.getElementById('status-message');
+          if (statusMessage) {
+            statusMessage.textContent = 'Error fetching data: ' + error.message;
+            statusMessage.classList.remove('hidden');
+          }
+        }
+      } else {
+        document.getElementById('login-modal').classList.remove('hidden');
+      }
+    }
+
+    // Fetch faculty positions
+    async function fetchFacultyPositions() {
+      const updatedPositions = totalRequirements.map(req => ({
+        department: req.name,
+        professor_total: req.professor,
+        professor_filled: Math.floor(req.professor / 2),
+        associate_professor_total: req.associate_professor,
+        associate_professor_filled: Math.floor(req.associate_professor / 2),
+        assistant_professor_total: req.assistant_professor,
+        assistant_professor_filled: Math.floor(req.assistant_professor / 2),
+        tutor_demonstrator_total: req.tutor_demonstrator,
+        tutor_demonstrator_filled: Math.floor(req.tutor_demonstrator / 2),
+        senior_resident_total: req.senior_resident,
+        senior_resident_filled: Math.floor(req.senior_resident / 2),
+        child_psychologist_total: req.child_psychologist,
+        child_psychologist_filled: Math.floor(req.child_psychologist / 2),
+        vacant_positions: (req.professor - Math.floor(req.professor / 2)) +
+                          (req.associate_professor - Math.floor(req.associate_professor / 2)) +
+                          (req.assistant_professor - Math.floor(req.assistant_professor / 2)) +
+                          (req.tutor_demonstrator - Math.floor(req.tutor_demonstrator / 2)) +
+                          (req.senior_resident - Math.floor(req.senior_resident / 2)) +
+                          (req.child_psychologist - Math.floor(req.child_psychologist / 2))
+      }));
+      renderFacultyTable(updatedPositions);
+      renderVacancyDashboard(updatedPositions);
+      updateSummary(updatedPositions);
+      renderVacancyChart(updatedPositions);
+    }
+
+    // Render real-time vacancy dashboard
+    function renderVacancyDashboard(positions) {
+      const vacancySummary = document.getElementById('vacancy-summary');
+      vacancySummary.innerHTML = '';
+      positions.forEach(pos => {
+        const designations = [
+          { name: 'Professor', total: pos.professor_total, filled: pos.professor_filled },
+          { name: 'Associate Professor', total: pos.associate_professor_total, filled: pos.associate_professor_filled },
+          { name: 'Assistant Professor', total: pos.assistant_professor_total, filled: pos.assistant_professor_filled },
+          { name: 'Tutor/Demonstrator', total: pos.tutor_demonstrator_total, filled: pos.tutor_demonstrator_filled },
+          { name: 'Senior Resident', total: pos.senior_resident_total, filled: pos.senior_resident_filled },
+          { name: 'Child Psychologist', total: pos.child_psychologist_total, filled: pos.child_psychologist_filled }
+        ];
+
+        designations.forEach(designation => {
+          const total = designation.total;
+          const filled = designation.filled;
+          const vacant = total - filled;
+          if (total > 0) {
+            const div = document.createElement('div');
+            div.className = 'vacancy-item';
+            div.innerHTML = `
+              <p class="font-semibold">${pos.department}</p>
+              <p>${designation.name}</p>
+              <p>Total: ${total}</p>
+              <p>Filled: ${filled}</p>
+              <p>Vacant: ${vacant}</p>
+            `;
+            if (vacant > 0) {
+              div.style.border = '2px solid #EF4444';
+            } else {
+              div.style.border = '2px solid #2DD4BF';
+            }
+            vacancySummary.appendChild(div);
+          }
+        });
+      });
+    }
+
+    // Render faculty table
+    function renderFacultyTable(positions) {
+      const tbody = document.getElementById('vacancy-table');
+      tbody.innerHTML = '';
+      let totalVacant = 0;
+      positions.forEach(pos => {
+        const row = document.createElement('tr');
+        if (pos.vacant_positions > 0) row.classList.add('bg-[#2D3748]');
+        totalVacant += pos.vacant_positions;
+        row.innerHTML = `
+          <td class="p-4 border border-[#4B5563]">${pos.department}</td>
+          <td class="p-4 border border-[#4B5563] ${pos.professor_filled === pos.professor_total ? 'text-[#2DD4BF]' : 'text-[#EF4444]'}">
+            ${pos.professor_filled === pos.professor_total ? 'Filled' : 'Vacant'} (${pos.professor_filled}/${pos.professor_total})
+          </td>
+          <td class="p-4 border border-[#4B5563] ${pos.associate_professor_filled === pos.associate_professor_total ? 'text-[#2DD4BF]' : 'text-[#EF4444]'}">
+            ${pos.associate_professor_filled === pos.associate_professor_total ? 'Filled' : 'Vacant'} (${pos.associate_professor_filled}/${pos.associate_professor_total})
+          </td>
+          <td class="p-4 border border-[#4B5563] ${pos.assistant_professor_filled === pos.assistant_professor_total ? 'text-[#2DD4BF]' : 'text-[#EF4444]'}">
+            ${pos.assistant_professor_filled === pos.assistant_professor_total ? 'Filled' : 'Vacant'} (${pos.assistant_professor_filled}/${pos.assistant_professor_total})
+          </td>
+          <td class="p-4 border border-[#4B5563] ${pos.tutor_demonstrator_filled === pos.tutor_demonstrator_total ? 'text-[#2DD4BF]' : 'text-[#EF4444]'}">
+            ${pos.tutor_demonstrator_filled === pos.tutor_demonstrator_total ? 'Filled' : 'Vacant'} (${pos.tutor_demonstrator_filled}/${pos.tutor_demonstrator_total})
+          </td>
+          <td class="p-4 border border-[#4B5563] ${pos.senior_resident_filled === pos.senior_resident_total ? 'text-[#2DD4BF]' : 'text-[#EF4444]'}">
+            ${pos.senior_resident_filled === pos.senior_resident_total ? 'Filled' : 'Vacant'} (${pos.senior_resident_filled}/${pos.senior_resident_total})
+          </td>
+          <td class="p-4 border border-[#4B5563] ${pos.child_psychologist_filled === pos.child_psychologist_total ? 'text-[#2DD4BF]' : 'text-[#EF4444]'}">
+            ${pos.child_psychologist_filled === pos.child_psychologist_total ? 'Filled' : 'Vacant'} (${pos.child_psychologist_filled}/${pos.child_psychologist_total})
+          </td>
+          <td class="p-4 border border-[#4B5563] ${pos.vacant_positions > 0 ? 'bg-[#EF4444]' : 'bg-[#2DD4BF]'} text-white font-bold">${pos.vacant_positions}</td>
+        `;
+        tbody.appendChild(row);
+      });
+      if (totalVacant > 0) {
+        const promptText = `There are ${totalVacant} vacant positions across departments. Please take action to fill these positions.`;
+        const promptModal = document.getElementById('prompt-modal');
+        const promptTextElement = document.getElementById('prompt-text');
+        if (promptModal && promptTextElement) {
+          promptTextElement.textContent = promptText;
+          promptModal.classList.remove('hidden');
+        }
+      }
+    }
+
+    // Update summary
+    function updateSummary(positions) {
+      const totalPositions = positions.reduce((sum, pos) => sum + pos.professor_total + pos.associate_professor_total + pos.assistant_professor_total +
+        pos.tutor_demonstrator_total + pos.senior_resident_total + pos.child_psychologist_total, 0);
+      const totalFilled = positions.reduce((sum, pos) => sum + pos.professor_filled + pos.associate_professor_filled + pos.assistant_professor_filled +
+        pos.tutor_demonstrator_filled + pos.senior_resident_filled + pos.child_psychologist_filled, 0);
+      const totalVacant = totalPositions - totalFilled;
+      const summaryText = document.getElementById('summary-text');
+      if (summaryText) {
+        summaryText.textContent = `Total Positions: ${totalPositions} | Vacant: ${totalVacant} | Filled: ${totalFilled}`;
+      }
+    }
+
+    // Render vacancy chart
+    function renderVacancyChart(positions) {
+      const ctx = document.getElementById('vacancy-chart').getContext('2d');
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: positions.map(pos => pos.department),
+          datasets: [
+            {
+              label: 'Vacant Positions',
+              data: positions.map(pos => pos.vacant_positions),
+              backgroundColor: '#EF4444',
+            },
+            {
+              label: 'Filled Positions',
+              data: positions.map(pos => (pos.professor_total + pos.associate_professor_total + pos.assistant_professor_total +
+                pos.tutor_demonstrator_total + pos.senior_resident_total + pos.child_psychologist_total) - pos.vacant_positions),
+              backgroundColor: '#2DD4BF',
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          scales: {
+            x: { stacked: true },
+            y: { stacked: true, beginAtZero: true }
+          }
+        }
+      });
+    }
+
+    // Fetch recruited faculty (mock data)
+    async function fetchRecruitedFaculty() {
+      const tbody = document.getElementById('recruited-table');
+      tbody.innerHTML = '';
+      const mockData = [
+        {
+          id: 1,
+          name: 'Dr. John Doe',
+          department: 'Anatomy',
+          designation: 'Professor',
+          mobile: '1234567890',
+          salary: 100000,
+          dob: '1970-01-01',
+          doj: '2020-01-01',
+          address: '123 Main St',
+          exp_senior_resident: '3',
+          exp_assistant_professor: '5',
+          exp_associate_professor: '2',
+          journals_published: 10,
+          bank_details: { account_holder: 'John Doe', account_number: '123456789', ifsc: 'ABCD1234567', bank_name_address: 'Bank of India, Main Branch' },
+          recruited_by: 'Vikash Bhatt'
+        }
+      ];
+
+      const start = (currentPage - 1) * itemsPerPage;
+      const end = start + itemsPerPage;
+      const paginatedData = mockData.slice(start, end);
+
+      paginatedData.forEach((faculty, index) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td class="p-4 border border-[#4B5563]">${start + index + 1}</td>
+          <td class="p-4 border border-[#4B5563]">${faculty.name}</td>
+          <td class="p-4 border border-[#4B5563]">${faculty.department}</td>
+          <td class="p-4 border border-[#4B5563]">${faculty.designation.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}</td>
+          <td class="p-4 border border-[#4B5563]">${faculty.mobile}</td>
+          <td class="p-4 border border-[#4B5563]">${faculty.salary}</td>
+          <td class="p-4 border border-[#4B5563]">${faculty.dob}</td>
+          <td class="p-4 border border-[#4B5563]">${faculty.doj}</td>
+          <td class="p-4 border border-[#4B5563]">${faculty.address}</td>
+          <td class="p-4 border border-[#4B5563]">${faculty.exp_senior_resident}</td>
+          <td class="p-4 border border-[#4B5563]">${faculty.exp_assistant_professor}</td>
+          <td class="p-4 border border-[#4B5563]">${faculty.exp_associate_professor}</td>
+          <td class="p-4 border border-[#4B5563]">${faculty.journals_published}</td>
+          <td class="p-4 border border-[#4B5563]">${Object.values(faculty.bank_details).join(', ')}</td>
+          <td class="p-4 border border-[#4B5563]">${faculty.recruited_by}</td>
+          <td class="p-4 border border-[#4B5563]">
+            <button class="btn-warning px-2 py-1 rounded mr-2 edit-btn" data-id="${faculty.id}">Edit</button>
+            <button class="btn-danger px-2 py-1 rounded delete-btn" data-id="${faculty.id}">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+
+      const totalPages = Math.ceil(mockData.length / itemsPerPage);
+      document.getElementById('page-info').textContent = `Page ${currentPage} of ${totalPages}`;
+      document.getElementById('prev-page').disabled = currentPage === 1;
+      document.getElementById('next-page').disabled = currentPage === totalPages;
+    }
+
+    // Fetch audit log (mock data)
+    async function fetchAuditLog() {
+      const tbody = document.getElementById('audit-table');
+      tbody.innerHTML = '';
+      const mockData = [
+        { timestamp: '2025-05-28 17:28:00', user: 'admin', action: 'Login', details: 'Admin logged in' }
+      ];
+
+      mockData.forEach(log => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td class="p-4 border border-[#4B5563]">${log.timestamp}</td>
+          <td class="p-4 border border-[#4B5563]">${log.user}</td>
+          <td class="p-4 border border-[#4B5563]">${log.action}</td>
+          <td class="p-4 border border-[#4B5563]">${log.details}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+    // Sidebar toggle for mobile
+    document.getElementById('sidebar-toggle').addEventListener('click', () => {
+      const sidebar = document.getElementById('sidebar');
+      isSidebarOpen = !isSidebarOpen;
+      sidebar.classList.toggle('sidebar-hidden', !isSidebarOpen);
+    });
+
+    // Close prompt modal
+    document.getElementById('close-modal').addEventListener('click', () => {
+      document.getElementById('prompt-modal').classList.add('hidden');
+    });
+
+    // Initial load
+    document.addEventListener('DOMContentLoaded', () => {
+      populateDepartments();
+      fetchData();
+    });
+  </script>
+</body>
+</html>
